@@ -133,6 +133,15 @@ void Game::handle_events() {
     case SDL_QUIT:
         this->running = false;
         break;
+    case SDL_KEYDOWN:
+        switch (event.key.keysym.sym) {
+        case SDLK_ESCAPE:
+            this->running = false;
+            break;
+        default:
+            break;
+        }
+        break;
     default:
         break;
     }
@@ -158,22 +167,6 @@ void Game::render() {
     image_location.x += this->cell_width;
     SDL_RenderCopy(this->renderer, this->cell_textures[CellType::Two].texture,
                    nullptr, &image_location);
-    /*
-    image_location.x += this->cell_width;
-    SDL_RenderCopy(this->renderer, this->cell_textures[8], nullptr,
-                   &image_location);
-    image_location.x += this->cell_width;
-    SDL_RenderCopy(this->renderer, this->cell_textures[16], nullptr,
-                   &image_location);
-    image_location.y += this->cell_height;
-    SDL_RenderCopy(this->renderer, this->cell_textures[32], nullptr,
-                   &image_location);
-    image_location.y += this->cell_height;
-    SDL_RenderCopy(this->renderer, this->cell_textures[64], nullptr,
-                   &image_location);
-    image_location.y += this->cell_height;
-    SDL_RenderCopy(this->renderer, this->cell_textures[128], nullptr,
-                   &image_location);*/
     SDL_RenderPresent(this->renderer);
 }
 
