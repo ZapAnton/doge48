@@ -1,9 +1,14 @@
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_image.h>
+#include <algorithm>
+#include <cstdlib>
+#include <ctime>
 #include <filesystem>
 #include <iostream>
 #include <map>
 #include <string>
+#include <tuple>
+#include <vector>
 
 // Type == power of two
 enum class CellType {
@@ -26,6 +31,24 @@ class CellTexture {
     SDL_Texture *texture;
 };
 
+class Cell {
+  public:
+    Cell(int x, int y, CellType type);
+    std::tuple<int, int> get_position();
+    CellType get_type() { return this->type; }
+
+  private:
+    int x;
+    int y;
+    CellType type;
+};
+
+Cell::Cell(int x, int y, CellType type) : x{x}, y{y}, type{type} {}
+
+std::tuple<int, int> Cell::get_position() {
+    return std::make_tuple(this->x, this->y);
+}
+
 class Game {
   public:
     Game();
@@ -41,19 +64,24 @@ class Game {
   private:
     const int screen_height;
     const int screen_width;
+    const int cell_row_count;
     const int cell_height;
     const int cell_width;
     bool running;
+    bool field_updated;
     SDL_Window *window;
     SDL_Renderer *renderer;
     std::map<CellType, CellTexture> cell_textures;
+    std::vector<Cell> field;
+
     void load_textures();
 };
 
 Game::Game()
-    : screen_height{800}, screen_width{800}, cell_height{screen_height / 4},
-      cell_width{screen_width / 4}, running{false}, window{nullptr},
-      renderer{nullptr} {
+    : screen_height{800}, screen_width{800}, cell_row_count{4},
+      cell_height{screen_height / cell_row_count}, cell_width{screen_width /
+                                                              cell_row_count},
+      running{false}, field_updated{true}, window{nullptr}, renderer{nullptr} {
     this->cell_textures[CellType::One] = {"2.png", nullptr};
     this->cell_textures[CellType::Two] = {"4.png", nullptr};
     this->cell_textures[CellType::Three] = {"8.png", nullptr};
@@ -97,6 +125,7 @@ void Game::load_textures() {
 }
 
 void Game::init() {
+    std::srand(std::time(nullptr));
     if (SDL_Init(SDL_INIT_VIDEO) != 0) {
         std::cerr << "SDL could not initialize! SDL_Error: " << SDL_GetError()
                   << std::endl;
@@ -128,12 +157,13 @@ void Game::init() {
 
 void Game::handle_events() {
     SDL_Event event;
-    SDL_PollEvent(&event);
+    SDL_WaitEvent(&event);
     switch (event.type) {
     case SDL_QUIT:
         this->running = false;
         break;
     case SDL_KEYDOWN:
+        this->field_updated = true;
         switch (event.key.keysym.sym) {
         case SDLK_ESCAPE:
             this->running = false;
@@ -147,7 +177,42 @@ void Game::handle_events() {
     }
 }
 
-void Game::update() {}
+void Game::update() {
+    if (this->field.size() ==
+        static_cast<std::vector<Cell>::size_type>(
+            this->cell_row_count * this->cell_row_count - 1)) {
+        this->running = false;
+        return;
+    }
+    if (!this->field_updated) {
+        return;
+    }
+    int generated_x = std::rand() % static_cast<int>(this->cell_row_count);
+    int generated_y = std::rand() % static_cast<int>(this->cell_row_count);
+    bool cell_is_used =
+        std::any_of(this->field.begin(), this->field.end(), [&](Cell &cell) {
+            int x_position = 0;
+            int y_position = 0;
+            std::tie(x_position, y_position) = cell.get_position();
+            return x_position == generated_x && y_position == generated_y;
+        });
+    while (cell_is_used) {
+        generated_x = std::rand() % static_cast<int>(this->cell_row_count);
+        generated_y = std::rand() % static_cast<int>(this->cell_row_count);
+        cell_is_used = std::any_of(
+            this->field.begin(), this->field.end(), [&](Cell &cell) {
+                int x_position = 0;
+                int y_position = 0;
+                std::tie(x_position, y_position) = cell.get_position();
+                return x_position == generated_x && y_position == generated_y;
+            });
+    }
+    Cell generated_cell(generated_x, generated_y, CellType::One);
+    this->field.push_back(generated_cell);
+    std::cout << "Generated Cell " << generated_x << " " << generated_y
+              << std::endl;
+    this->field_updated = false;
+}
 
 void Game::render() {
     SDL_SetRenderDrawColor(this->renderer, 250, 214, 114, 255);
@@ -162,11 +227,16 @@ void Game::render() {
         SDL_RenderDrawLine(this->renderer, 0, i, this->screen_width, i);
     }
     SDL_Rect image_location{0, 0, this->cell_height, this->cell_width};
-    SDL_RenderCopy(this->renderer, this->cell_textures[CellType::One].texture,
-                   nullptr, &image_location);
-    image_location.x += this->cell_width;
-    SDL_RenderCopy(this->renderer, this->cell_textures[CellType::Two].texture,
-                   nullptr, &image_location);
+    for (auto &cell : this->field) {
+        int cell_x = 0;
+        int cell_y = 0;
+        std::tie(cell_x, cell_y) = cell.get_position();
+        image_location.x = cell_x * this->cell_width;
+        image_location.y = cell_y * this->cell_height;
+        SDL_RenderCopy(this->renderer,
+                       this->cell_textures[cell.get_type()].texture, nullptr,
+                       &image_location);
+    }
     SDL_RenderPresent(this->renderer);
 }
 
