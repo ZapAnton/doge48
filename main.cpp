@@ -26,6 +26,11 @@ enum class CellType {
     Eleven,
 };
 
+CellType next_cell_type(CellType type) {
+    return CellType(static_cast<std::underlying_type<CellType>::type>(type) +
+                    1);
+}
+
 class CellTexture {
   public:
     std::string filename;
@@ -36,9 +41,10 @@ class Cell {
   public:
     Cell(int x, int y, CellType type);
     std::tuple<int, int> get_position();
-    CellType get_type() { return this->type; }
+    CellType get_type() const { return this->type; }
     int get_x() const { return this->x; }
     int get_y() const { return this->y; }
+    void set_type(CellType type) { this->type = type; }
     void set_x(int x) { this->x = x; }
     void set_y(int y) { this->y = y; }
 
@@ -162,31 +168,31 @@ void Game::init() {
 }
 
 void Game::handle_movement_key(SDL_Keycode key_type) {
-    std::function<bool(const Cell &, const Cell &)> sort_algorithm;
+    std::function<bool(const Cell &, const Cell &)> cell_move_order;
     switch (key_type) {
     case SDLK_UP:
-        sort_algorithm = [](const Cell &cell1, const Cell &cell2) {
+        cell_move_order = [](const Cell &cell1, const Cell &cell2) {
             const int y_position_1 = cell1.get_y();
             const int y_position_2 = cell2.get_y();
             return y_position_1 < y_position_2;
         };
         break;
     case SDLK_DOWN:
-        sort_algorithm = [](const Cell &cell1, const Cell &cell2) {
+        cell_move_order = [](const Cell &cell1, const Cell &cell2) {
             const int y_position_1 = cell1.get_y();
             const int y_position_2 = cell2.get_y();
             return y_position_1 > y_position_2;
         };
         break;
     case SDLK_RIGHT:
-        sort_algorithm = [](const Cell &cell1, const Cell &cell2) {
+        cell_move_order = [](const Cell &cell1, const Cell &cell2) {
             const int x_position_1 = cell1.get_x();
             const int x_position_2 = cell2.get_x();
             return x_position_1 > x_position_2;
         };
         break;
     case SDLK_LEFT:
-        sort_algorithm = [](const Cell &cell1, const Cell &cell2) {
+        cell_move_order = [](const Cell &cell1, const Cell &cell2) {
             const int x_position_1 = cell1.get_x();
             const int x_position_2 = cell2.get_x();
             return x_position_1 < x_position_2;
@@ -195,57 +201,83 @@ void Game::handle_movement_key(SDL_Keycode key_type) {
     default:
         return;
     };
-    std::sort(this->field.begin(), this->field.end(), sort_algorithm);
-    for (auto &cell : this->field) {
-        std::function<bool(const Cell &)> filter_algorithm;
+    std::sort(this->field.begin(), this->field.end(), cell_move_order);
+    for (std::vector<Cell>::size_type i = 0; i < this->field.size(); ++i) {
+        auto cell = &this->field[i];
+        std::function<bool(const Cell &)> cells_in_the_way_filter;
         switch (key_type) {
         case SDLK_UP:
-            filter_algorithm = [&](const Cell &other_cell) {
-                return other_cell.get_y() < cell.get_y() &&
-                       other_cell.get_x() == cell.get_x();
+            cells_in_the_way_filter = [&](const Cell &other_cell) {
+                return other_cell.get_y() < cell->get_y() &&
+                       other_cell.get_x() == cell->get_x();
             };
             break;
         case SDLK_DOWN:
-            filter_algorithm = [&](const Cell &other_cell) {
-                return other_cell.get_y() > cell.get_y() &&
-                       other_cell.get_x() == cell.get_x();
+            cells_in_the_way_filter = [&](const Cell &other_cell) {
+                return other_cell.get_y() > cell->get_y() &&
+                       other_cell.get_x() == cell->get_x();
             };
             break;
         case SDLK_LEFT:
-            filter_algorithm = [&](const Cell &other_cell) {
-                return other_cell.get_x() < cell.get_x() &&
-                       other_cell.get_y() == cell.get_y();
+            cells_in_the_way_filter = [&](const Cell &other_cell) {
+                return other_cell.get_x() < cell->get_x() &&
+                       other_cell.get_y() == cell->get_y();
             };
             break;
         case SDLK_RIGHT:
-            filter_algorithm = [&](const Cell &other_cell) {
-                return other_cell.get_x() > cell.get_x() &&
-                       other_cell.get_y() == cell.get_y();
+            cells_in_the_way_filter = [&](const Cell &other_cell) {
+                return other_cell.get_x() > cell->get_x() &&
+                       other_cell.get_y() == cell->get_y();
             };
             break;
         default:
             return;
         };
-        auto cells_in_a_way_count = static_cast<int>(std::count_if(
-            this->field.begin(), this->field.end(), filter_algorithm));
-        switch (key_type) {
-        case SDLK_UP:
-            cell.set_y(cell.get_y() - (cell.get_y() - cells_in_a_way_count));
-            break;
-        case SDLK_DOWN:
-            cell.set_y(cell.get_y() + (this->cell_row_count - 1 - cell.get_y() -
-                                       cells_in_a_way_count));
-            break;
-        case SDLK_LEFT:
-            cell.set_x(cell.get_x() - (cell.get_x() - cells_in_a_way_count));
-            break;
-        case SDLK_RIGHT:
-            cell.set_x(cell.get_x() + (this->cell_row_count - 1 - cell.get_x() -
-                                       cells_in_a_way_count));
-            break;
-        default:
-            return;
-        };
+        std::vector<Cell> cells_in_the_way;
+        std::copy_if(this->field.begin(), this->field.end(),
+                     std::back_inserter(cells_in_the_way),
+                     cells_in_the_way_filter);
+        if (!cells_in_the_way.empty() &&
+            // TODO: Fix when other cells do not move if the merge of the
+            // primary cell occurs
+            cells_in_the_way.back().get_type() == cell->get_type()) {
+            this->field.erase(this->field.begin() + i);
+            auto last_cell_in_a_way = cells_in_the_way.back();
+            auto last_cell_original = std::find_if(
+                this->field.begin(), this->field.end(),
+                [&](const Cell &original_cell) {
+                    return original_cell.get_x() ==
+                               last_cell_in_a_way.get_x() &&
+                           original_cell.get_y() == last_cell_in_a_way.get_y();
+                });
+            last_cell_original->set_type(
+                next_cell_type(last_cell_original->get_type()));
+        } else {
+            auto cells_in_the_way_count =
+                static_cast<int>(cells_in_the_way.size());
+            switch (key_type) {
+            case SDLK_UP:
+                cell->set_y(cell->get_y() -
+                            (cell->get_y() - cells_in_the_way_count));
+                break;
+            case SDLK_DOWN:
+                cell->set_y(cell->get_y() +
+                            (this->cell_row_count - 1 - cell->get_y() -
+                             cells_in_the_way_count));
+                break;
+            case SDLK_LEFT:
+                cell->set_x(cell->get_x() -
+                            (cell->get_x() - cells_in_the_way_count));
+                break;
+            case SDLK_RIGHT:
+                cell->set_x(cell->get_x() +
+                            (this->cell_row_count - 1 - cell->get_x() -
+                             cells_in_the_way_count));
+                break;
+            default:
+                return;
+            };
+        }
     }
 }
 
