@@ -161,7 +161,6 @@ void Game::init() {
     this->running = true;
 }
 
-// TODO: Fix 2 cells movement case
 void Game::handle_movement_key(SDL_Keycode key_type) {
     std::function<bool(const Cell &, const Cell &)> sort_algorithm;
     switch (key_type) {
@@ -183,14 +182,14 @@ void Game::handle_movement_key(SDL_Keycode key_type) {
         sort_algorithm = [](const Cell &cell1, const Cell &cell2) {
             const int x_position_1 = cell1.get_x();
             const int x_position_2 = cell2.get_x();
-            return x_position_1 < x_position_2;
+            return x_position_1 > x_position_2;
         };
         break;
     case SDLK_LEFT:
         sort_algorithm = [](const Cell &cell1, const Cell &cell2) {
             const int x_position_1 = cell1.get_x();
             const int x_position_2 = cell2.get_x();
-            return x_position_1 > x_position_2;
+            return x_position_1 < x_position_2;
         };
         break;
     default:
