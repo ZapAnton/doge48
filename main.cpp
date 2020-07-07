@@ -83,6 +83,8 @@ class Game {
     SDL_Window *window;
     SDL_Renderer *renderer;
     std::map<CellType, CellTexture> cell_textures;
+    std::map<SDL_Keycode, std::function<bool(const Cell &, const Cell &)>>
+        cell_move_order_by_key_type;
     std::vector<Cell> field;
 
     void load_textures();
@@ -105,6 +107,31 @@ Game::Game()
     this->cell_textures[CellType::Nine] = {"512.png", nullptr};
     this->cell_textures[CellType::Ten] = {"1024.png", nullptr};
     this->cell_textures[CellType::Eleven] = {"2048.png", nullptr};
+
+    this->cell_move_order_by_key_type[SDLK_UP] = [](const Cell &cell1,
+                                                    const Cell &cell2) {
+        const int y_position_1 = cell1.get_y();
+        const int y_position_2 = cell2.get_y();
+        return y_position_1 < y_position_2;
+    };
+    this->cell_move_order_by_key_type[SDLK_DOWN] = [](const Cell &cell1,
+                                                      const Cell &cell2) {
+        const int y_position_1 = cell1.get_y();
+        const int y_position_2 = cell2.get_y();
+        return y_position_1 > y_position_2;
+    };
+    this->cell_move_order_by_key_type[SDLK_LEFT] = [](const Cell &cell1,
+                                                      const Cell &cell2) {
+        const int x_position_1 = cell1.get_x();
+        const int x_position_2 = cell2.get_x();
+        return x_position_1 < x_position_2;
+    };
+    this->cell_move_order_by_key_type[SDLK_RIGHT] = [](const Cell &cell1,
+                                                       const Cell &cell2) {
+        const int x_position_1 = cell1.get_x();
+        const int x_position_2 = cell2.get_x();
+        return x_position_1 > x_position_2;
+    };
 }
 
 Game::~Game() { this->clean(); }
@@ -168,39 +195,8 @@ void Game::init() {
 }
 
 void Game::handle_movement_key(SDL_Keycode key_type) {
-    std::function<bool(const Cell &, const Cell &)> cell_move_order;
-    switch (key_type) {
-    case SDLK_UP:
-        cell_move_order = [](const Cell &cell1, const Cell &cell2) {
-            const int y_position_1 = cell1.get_y();
-            const int y_position_2 = cell2.get_y();
-            return y_position_1 < y_position_2;
-        };
-        break;
-    case SDLK_DOWN:
-        cell_move_order = [](const Cell &cell1, const Cell &cell2) {
-            const int y_position_1 = cell1.get_y();
-            const int y_position_2 = cell2.get_y();
-            return y_position_1 > y_position_2;
-        };
-        break;
-    case SDLK_RIGHT:
-        cell_move_order = [](const Cell &cell1, const Cell &cell2) {
-            const int x_position_1 = cell1.get_x();
-            const int x_position_2 = cell2.get_x();
-            return x_position_1 > x_position_2;
-        };
-        break;
-    case SDLK_LEFT:
-        cell_move_order = [](const Cell &cell1, const Cell &cell2) {
-            const int x_position_1 = cell1.get_x();
-            const int x_position_2 = cell2.get_x();
-            return x_position_1 < x_position_2;
-        };
-        break;
-    default:
-        return;
-    };
+    // TODO: Do not update field if no move is possible
+    auto cell_move_order = this->cell_move_order_by_key_type[key_type];
     std::sort(this->field.begin(), this->field.end(), cell_move_order);
     for (std::vector<Cell>::size_type i = 0; i < this->field.size(); ++i) {
         auto cell = &this->field[i];
