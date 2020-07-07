@@ -1,7 +1,7 @@
 EXECUTABLE_NAME = doge48
 BUILD_DIRECTORY = bin
 BUILD_PATH = $(BUILD_DIRECTORY)/$(EXECUTABLE_NAME)
-COMPILER_FLAGS = -Wall -Wextra -Werror -Wpedantic
+COMPILER_FLAGS = -Wall -Wextra -Werror -Wconversion -pedantic -Wfatal-errors
 LINKED_LIBS = -lSDL2 -lSDL2_image
 STANDARD_VERSION = c++17
 

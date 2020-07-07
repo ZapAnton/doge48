@@ -131,7 +131,7 @@ void Game::load_textures() {
 }
 
 void Game::init() {
-    std::srand(std::time(nullptr));
+    std::srand(static_cast<unsigned int>(std::time(nullptr)));
     if (SDL_Init(SDL_INIT_VIDEO) != 0) {
         std::cerr << "SDL could not initialize! SDL_Error: " << SDL_GetError()
                   << std::endl;
@@ -227,8 +227,8 @@ void Game::handle_movement_key(SDL_Keycode key_type) {
         default:
             return;
         };
-        auto cells_in_a_way_count = std::count_if(
-            this->field.begin(), this->field.end(), filter_algorithm);
+        auto cells_in_a_way_count = static_cast<int>(std::count_if(
+            this->field.begin(), this->field.end(), filter_algorithm));
         switch (key_type) {
         case SDLK_UP:
             cell.set_y(cell.get_y() - (cell.get_y() - cells_in_a_way_count));
